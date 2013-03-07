@@ -84,10 +84,10 @@
     CGContextBeginPath(currentContext);
 
     CGContextMoveToPoint(currentContext, 0, 0);
-    for( NSUInteger i=0; i<_historyFPSLength; i++ ){
+    for( NSUInteger i=0; i<=_historyFPSLength; i++ ){
         lowestFPS = MIN(lowestFPS, _historyFPS[i]);
         
-        CGContextAddLineToPoint(currentContext, i, MAX(height -height *_historyFPS[i], 0));
+        CGContextAddLineToPoint(currentContext, i +1, MAX(height -height *_historyFPS[i], 0));
     }
 
     CGContextStrokePath(currentContext);
@@ -98,10 +98,9 @@
     CGContextSelectFont(currentContext, "Helvetica", 10, kCGEncodingMacRoman);
     
     // Flip
-    CGAffineTransform xform = CGAffineTransformMake( 1.0,  0.0,
-                                                     0.0, -1.0,
-                                                     0.0,  0.0);
-    CGContextSetTextMatrix(currentContext, xform);
+    CGContextSetTextMatrix(currentContext, CGAffineTransformMake( 1.0,  0.0,
+                                                                  0.0, -1.0,
+                                                                  0.0,  0.0));
 
     NSString *text  = [NSString stringWithFormat:@"low: %.f", lowestFPS *60.0f];
     const char *str = [text UTF8String];
