@@ -41,6 +41,12 @@
 #pragma mark NSObject
 
 
+- (void)dealloc {
+    [_displayLink setPaused:YES];
+    [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+}
+
+
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
         _historyFPSLength           = 0;
