@@ -31,8 +31,8 @@
 
 @implementation RRFPSBar {
     CADisplayLink          *_displayLink;
-    CGFloat                 _historyFPS[320];
-    NSUInteger              _historyFPSLength;
+    NSUInteger              _historyDTLength;
+    CFTimeInterval          _historyDT[320];
     CFTimeInterval          _displayLinkTickTimeLast;
 }
 
@@ -49,7 +49,7 @@
 
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
-        _historyFPSLength           = 0;
+        _historyDTLength           = 0;
         _displayLinkTickTimeLast    = CACurrentMediaTime();
         
         [self setWindowLevel: UIWindowLevelStatusBar +1.0f];
@@ -78,25 +78,36 @@
 
 
 - (void)drawRect:(CGRect)rect {
-    CGFloat height = rect.size.height;
-    CGFloat lowestFPS = 1.0f;
-    
+
+	CFTimeInterval maxDT = CGFLOAT_MIN;
     
     CGContextRef currentContext = UIGraphicsGetCurrentContext();
-
-    // Draw FPS
     CGContextSetLineWidth(currentContext, 1);
-    CGContextSetRGBStrokeColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
     CGContextBeginPath(currentContext);
 
+    CGContextSetRGBStrokeColor(currentContext, 1.0f, 1.0f, 1.0f, 0.5f);
+    
+    // 60FPS
     CGContextMoveToPoint(currentContext, 0, 0);
-    for( NSUInteger i=0; i<=_historyFPSLength; i++ ){
-        lowestFPS = MIN(lowestFPS, _historyFPS[i]);
-        
-        CGContextAddLineToPoint(currentContext, i +1, MAX(height -height *_historyFPS[i], 0));
+    CGContextAddLineToPoint(currentContext, rect.size.width, 0);
+
+    // 30FPS
+    CGContextMoveToPoint(currentContext, 0, 10);
+    CGContextAddLineToPoint(currentContext, rect.size.width, 10);
+
+    CGContextStrokePath(currentContext);
+
+    // Graph
+    CGContextSetRGBStrokeColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
+    
+    CGContextMoveToPoint(currentContext, 0, 0);
+    for( NSUInteger i=0; i<=_historyDTLength; i++ ){
+        maxDT = MAX(maxDT, _historyDT[i]);
+        CGContextAddLineToPoint(currentContext, i +1, rect.size.height *(float)_historyDT[i]);
     }
 
     CGContextStrokePath(currentContext);
+
     
     // Draw lowest FPS
     CGContextSetTextDrawingMode(currentContext, kCGTextFill);
@@ -104,14 +115,13 @@
     CGContextSelectFont(currentContext, "Helvetica", 10, kCGEncodingMacRoman);
     
     // Flip
-    CGContextSetTextMatrix(currentContext, CGAffineTransformMake( 1.0,  0.0,
-                                                                  0.0, -1.0,
-                                                                  0.0,  0.0));
-
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", lowestFPS *60.0f];
+    CGContextSetTextMatrix(currentContext, CGAffineTransformMake( 1.0f,  0.0f,
+                                                                  0.0f, -1.0f,
+                                                                  0.0f,  0.0f));
+    
+    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
     const char *str = [text UTF8String];
-    CGContextShowTextAtPoint(currentContext, 6.0, 18.0, str, strlen(str));
-
+    CGContextShowTextAtPoint(currentContext, 6.0f, 18.0f, str, strlen(str));
 }
 
 
@@ -142,15 +152,15 @@
 - (void)displayLinkTick {
     
     // Shift up the buffer
-    for ( int i = _historyFPSLength; i >= 1; i-- ) {
-        _historyFPS[i] = _historyFPS[i -1];
+    for ( int i = _historyDTLength; i >= 1; i-- ) {
+        _historyDT[i] = _historyDT[i -1];
     }
     
     // Store new state
-    _historyFPS[0] = roundf(1.0f /(float)(_displayLink.timestamp -_displayLinkTickTimeLast)) /60.0f;
+    _historyDT[0] = _displayLink.timestamp -_displayLinkTickTimeLast;
 
     // Update length if there is more place
-	if ( _historyFPSLength < 319 ) _historyFPSLength++;
+	if ( _historyDTLength < 319 ) _historyDTLength++;
     
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
