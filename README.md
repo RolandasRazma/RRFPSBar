@@ -21,6 +21,10 @@ RRFPSBar
 @end
 ```
 
+TODO:
+============
+Rewrite in GL to reduce drawing lag
+
 I don't have blog so...
 ============
 I hate lagging apps and do my best to keep [FPS](http://en.wikipedia.org/wiki/Frame_rate) high on [@YPlan](http://yplanapp.com). 
