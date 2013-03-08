@@ -68,6 +68,10 @@
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkTick)];
         [_displayLink setPaused:YES];
         [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+        
+        if( [self.layer respondsToSelector:@selector(setDrawsAsynchronously:)] ){
+            [self.layer setDrawsAsynchronously:YES];
+        }
     }
     return self;
 }
@@ -122,6 +126,7 @@
     NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
     const char *str = [text UTF8String];
     CGContextShowTextAtPoint(currentContext, 6.0f, 18.0f, str, strlen(str));
+
 }
 
 
@@ -165,9 +170,7 @@
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    // We should redraw
     [self setNeedsDisplay];
-    
 }
 
 
