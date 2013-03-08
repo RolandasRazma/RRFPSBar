@@ -27,6 +27,7 @@
 //
 
 #import "RRFPSBar.h"
+#import <QuartzCore/QuartzCore.h>
 
 
 @implementation RRFPSBar {
@@ -83,7 +84,7 @@
 
 - (void)drawRect:(CGRect)rect {
 
-	CFTimeInterval maxDT = CGFLOAT_MIN;
+	CFTimeInterval minFPS = CGFLOAT_MAX;
     
     CGContextRef currentContext = UIGraphicsGetCurrentContext();
     CGContextSetLineWidth(currentContext, 1);
@@ -106,8 +107,8 @@
     
     CGContextMoveToPoint(currentContext, 0, 0);
     for( NSUInteger i=0; i<=_historyDTLength; i++ ){
-        maxDT = MAX(maxDT, _historyDT[i]);
-        CGContextAddLineToPoint(currentContext, i +1, rect.size.height *(float)_historyDT[i]);
+        minFPS = MIN(minFPS, _historyDT[i]);
+        CGContextAddLineToPoint(currentContext, i +1, rect.size.height -self.frame.size.height /60.0f *(float)_historyDT[i]);
     }
 
     CGContextStrokePath(currentContext);
@@ -123,7 +124,7 @@
                                                                   0.0f, -1.0f,
                                                                   0.0f,  0.0f));
     
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
+    NSString *text  = [NSString stringWithFormat:@"low: %.f", roundf(minFPS)];
     const char *str = [text UTF8String];
     CGContextShowTextAtPoint(currentContext, 6.0f, 18.0f, str, strlen(str));
 
@@ -162,7 +163,7 @@
     }
     
     // Store new state
-    _historyDT[0] = _displayLink.timestamp -_displayLinkTickTimeLast;
+    _historyDT[0] = 1.0f /(_displayLink.timestamp -_displayLinkTickTimeLast);
 
     // Update length if there is more place
 	if ( _historyDTLength < 319 ) _historyDTLength++;
@@ -170,7 +171,7 @@
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    if( _historyDT[0] < 0.1f ){
+    if( _historyDT[0] > 10 ){
         [self setNeedsDisplay];
     }
 }
