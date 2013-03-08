@@ -170,7 +170,9 @@
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    [self setNeedsDisplay];
+    if( _historyDT[0] < 0.1f ){
+        [self setNeedsDisplay];
+    }
 }
 
 
