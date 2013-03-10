@@ -30,11 +30,23 @@
 #import <QuartzCore/QuartzCore.h>
 
 
+typedef struct _rrVertex4F {
+	GLfloat x1;
+	GLfloat y1;
+	GLfloat x2;
+	GLfloat y2;
+} rrVertex4F;
+
+
 @implementation RRFPSBar {
     CADisplayLink          *_displayLink;
-    NSUInteger              _historyDTLength;
-    CFTimeInterval          _historyDT[320];
     CFTimeInterval          _displayLinkTickTimeLast;
+
+    rrVertex4F              _historyVertices[640];
+    
+    GLKView                 *_view;
+    EAGLContext             *_glContext;
+    GLKBaseEffect           *_effect;
 }
 
 
@@ -50,9 +62,6 @@
 
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
-        _historyDTLength           = 0;
-        _displayLinkTickTimeLast    = CACurrentMediaTime();
-        
         [self setWindowLevel: UIWindowLevelStatusBar +1.0f];
         [self setBackgroundColor:[UIColor blackColor]];
         
@@ -66,68 +75,33 @@
                                                      name: UIApplicationWillResignActiveNotification
                                                    object: nil];
 
+        // EAGLContext
+        _glContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+        [EAGLContext setCurrentContext:_glContext];
+        
+        // GLKView
+        _view = [[GLKView alloc] initWithFrame:self.bounds context:_glContext];
+        [_view setDrawableColorFormat: GLKViewDrawableColorFormatRGB565];
+        [_view setDrawableDepthFormat: GLKViewDrawableDepthFormat16];
+        [_view setDelegate:self];
+        [self addSubview:_view];
+        
+        // GLKBaseEffect
+        _effect = [[GLKBaseEffect alloc] init];
+        [_effect setUseConstantColor: GL_TRUE];
+        [_effect setConstantColor: GLKVector4Make( 1.0f, 0.0f, 0.0f, 1.0f)];
+        [_effect.transform setProjectionMatrix: GLKMatrix4MakeOrtho(0.0f, _view.frame.size.width, 0.0f, 60.0f, 1.0f, -1.0f)];
+
+        // Display link
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkTick)];
         [_displayLink setPaused:YES];
         [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
         
-        if( [self.layer respondsToSelector:@selector(setDrawsAsynchronously:)] ){
-            [self.layer setDrawsAsynchronously:YES];
-        }
+        // Initial data
+        _historyVertices[0]         = (rrVertex4F){0, 0, 0, 60};
+        _displayLinkTickTimeLast    = _displayLink.timestamp;
     }
     return self;
-}
-
-
-#pragma mark -
-#pragma mark UIVIew
-
-
-- (void)drawRect:(CGRect)rect {
-
-	CFTimeInterval minFPS = CGFLOAT_MAX;
-    
-    CGContextRef currentContext = UIGraphicsGetCurrentContext();
-    CGContextSetLineWidth(currentContext, 1);
-    CGContextBeginPath(currentContext);
-
-    CGContextSetRGBStrokeColor(currentContext, 1.0f, 1.0f, 1.0f, 0.5f);
-    
-    // 60FPS
-    CGContextMoveToPoint(currentContext, 0, 0);
-    CGContextAddLineToPoint(currentContext, rect.size.width, 0);
-
-    // 30FPS
-    CGContextMoveToPoint(currentContext, 0, 10);
-    CGContextAddLineToPoint(currentContext, rect.size.width, 10);
-
-    CGContextStrokePath(currentContext);
-
-    // Graph
-    CGContextSetRGBStrokeColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
-    
-    CGContextMoveToPoint(currentContext, 0, 0);
-    for( NSUInteger i=0; i<=_historyDTLength; i++ ){
-        minFPS = MIN(minFPS, _historyDT[i]);
-        CGContextAddLineToPoint(currentContext, i +1, rect.size.height -self.frame.size.height /60.0f *(float)_historyDT[i]);
-    }
-
-    CGContextStrokePath(currentContext);
-
-    
-    // Draw lowest FPS
-    CGContextSetTextDrawingMode(currentContext, kCGTextFill);
-    CGContextSetRGBFillColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
-    CGContextSelectFont(currentContext, "Helvetica", 10, kCGEncodingMacRoman);
-    
-    // Flip
-    CGContextSetTextMatrix(currentContext, CGAffineTransformMake( 1.0f,  0.0f,
-                                                                  0.0f, -1.0f,
-                                                                  0.0f,  0.0f));
-    
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", roundf(minFPS)];
-    const char *str = [text UTF8String];
-    CGContextShowTextAtPoint(currentContext, 6.0f, 18.0f, str, strlen(str));
-
 }
 
 
@@ -156,24 +130,46 @@
 
 
 - (void)displayLinkTick {
-    
-    // Shift up the buffer
-    for ( int i = _historyDTLength; i >= 1; i-- ) {
-        _historyDT[i] = _historyDT[i -1];
+
+    for ( int i = 639; i >= 1; i-=1 ) {
+        // Move vector >>
+        _historyVertices[i] = _historyVertices[i -1];
+        
+        // Move x >>
+        _historyVertices[i].x1++;
+        _historyVertices[i].x2++;
     }
     
-    // Store new state
-    _historyDT[0] = 1.0f /(_displayLink.timestamp -_displayLinkTickTimeLast);
+    _historyVertices[0] = (rrVertex4F){
+        _historyVertices[1].x2,
+        _historyVertices[1].y2,
+        _historyVertices[1].x2 -1,
+        MIN(60.0f, 1.0f /(_displayLink.timestamp -_displayLinkTickTimeLast))
+    };
 
-    // Update length if there is more place
-	if ( _historyDTLength < 319 ) _historyDTLength++;
-    
-    // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    if( _historyDT[0] > 10 ){
-        [self setNeedsDisplay];
-    }
+    [_view setNeedsDisplay];
+}
+
+
+#pragma mark -
+#pragma mark GLKViewDelegate
+
+
+- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
+    
+    glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    // Prepare the effect for rendering
+    [_effect prepareToDraw];
+    
+    // Draw
+    glEnableVertexAttribArray(GLKVertexAttribPosition);
+	glVertexAttribPointer(GLKVertexAttribPosition, 2, GL_FLOAT, GL_FALSE, 0, _historyVertices);
+	glDrawArrays(GL_LINES, 0, 640);
+    
 }
 
 
