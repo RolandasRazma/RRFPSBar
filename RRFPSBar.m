@@ -163,11 +163,13 @@ typedef struct _rrVertex4F {
 
     // Render
     dispatch_async(_renderingQueue, ^{
+        // Store original EAGLContext
         EAGLContext *oldContext = [EAGLContext currentContext];
         
+        // Set our context
         [EAGLContext setCurrentContext:_glContext];
         
-        // Render here
+        // Clear
         glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
@@ -182,11 +184,11 @@ typedef struct _rrVertex4F {
         // Update view
         [_view display];
         
+        // Restore original EAGLContext
+        [EAGLContext setCurrentContext:oldContext];
+        
         // Signal a semaphore
         dispatch_semaphore_signal(_renderingSemaphore);
-        
-        // Restore context
-        [EAGLContext setCurrentContext:oldContext];
     });
 
 }
