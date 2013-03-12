@@ -30,7 +30,7 @@
 #import <GLKit/GLKit.h>
 
 
-@interface RRFPSBar : UIWindow <GLKViewDelegate>
+@interface RRFPSBar : UIWindow
 
 + (RRFPSBar *)sharedInstance;
 

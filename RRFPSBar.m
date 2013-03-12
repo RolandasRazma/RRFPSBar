@@ -47,6 +47,9 @@ typedef struct _rrVertex4F {
     GLKView                 *_view;
     EAGLContext             *_glContext;
     GLKBaseEffect           *_effect;
+    
+    dispatch_semaphore_t    _renderingSemaphore;
+    dispatch_queue_t        _renderingQueue;
 }
 
 
@@ -55,16 +58,17 @@ typedef struct _rrVertex4F {
 
 
 - (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    
     [_displayLink setPaused:YES];
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    
+    dispatch_release(_renderingQueue);
 }
 
 
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
-        [self setWindowLevel: UIWindowLevelStatusBar +1.0f];
-        [self setBackgroundColor:[UIColor blackColor]];
-        
         [[NSNotificationCenter defaultCenter] addObserver: self
                                                  selector: @selector(applicationDidBecomeActiveNotification)
                                                      name: UIApplicationDidBecomeActiveNotification
@@ -77,13 +81,11 @@ typedef struct _rrVertex4F {
 
         // EAGLContext
         _glContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
-        [EAGLContext setCurrentContext:_glContext];
-        
+
         // GLKView
         _view = [[GLKView alloc] initWithFrame:self.bounds context:_glContext];
         [_view setDrawableColorFormat: GLKViewDrawableColorFormatRGB565];
         [_view setDrawableDepthFormat: GLKViewDrawableDepthFormat16];
-        [_view setDelegate:self];
         [self addSubview:_view];
         
         // GLKBaseEffect
@@ -97,9 +99,13 @@ typedef struct _rrVertex4F {
         [_displayLink setPaused:YES];
         [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
         
-        // Initial data
+        // Initial values
         _historyVertices[0]         = (rrVertex4F){0, 0, 0, 60};
         _displayLinkTickTimeLast    = _displayLink.timestamp;
+        _renderingSemaphore         = dispatch_semaphore_create(1);
+        _renderingQueue             = dispatch_queue_create("RRFPSBarRenderingQueue", DISPATCH_QUEUE_SERIAL);
+
+        [self setWindowLevel: UIWindowLevelStatusBar +1.0f];
     }
     return self;
 }
@@ -131,6 +137,7 @@ typedef struct _rrVertex4F {
 
 - (void)displayLinkTick {
 
+    // Move old records
     for ( int i = 639; i >= 1; i-=1 ) {
         // Move vector >>
         _historyVertices[i] = _historyVertices[i -1];
@@ -140,6 +147,7 @@ typedef struct _rrVertex4F {
         _historyVertices[i].x2++;
     }
     
+    // Store new state
     _historyVertices[0] = (rrVertex4F){
         _historyVertices[1].x2,
         _historyVertices[1].y2,
@@ -148,28 +156,39 @@ typedef struct _rrVertex4F {
     };
 
     _displayLinkTickTimeLast = _displayLink.timestamp;
-    
-    [_view setNeedsDisplay];
-}
 
+    
+    // Wait for awailable renderer
+    if ( dispatch_semaphore_wait(_renderingSemaphore, DISPATCH_TIME_NOW) != 0 ) return;
 
-#pragma mark -
-#pragma mark GLKViewDelegate
+    // Render
+    dispatch_async(_renderingQueue, ^{
+        EAGLContext *oldContext = [EAGLContext currentContext];
+        
+        [EAGLContext setCurrentContext:_glContext];
+        
+        // Render here
+        glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        // Prepare the effect for rendering
+        [_effect prepareToDraw];
+        
+        // Draw
+        glEnableVertexAttribArray(GLKVertexAttribPosition);
+        glVertexAttribPointer(GLKVertexAttribPosition, 2, GL_FLOAT, GL_FALSE, 0, _historyVertices);
+        glDrawArrays(GL_LINES, 0, 640);
 
+        // Update view
+        [_view display];
+        
+        // Signal a semaphore
+        dispatch_semaphore_signal(_renderingSemaphore);
+        
+        // Restore context
+        [EAGLContext setCurrentContext:oldContext];
+    });
 
-- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
-    
-    glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    // Prepare the effect for rendering
-    [_effect prepareToDraw];
-    
-    // Draw
-    glEnableVertexAttribArray(GLKVertexAttribPosition);
-	glVertexAttribPointer(GLKVertexAttribPosition, 2, GL_FLOAT, GL_FALSE, 0, _historyVertices);
-	glDrawArrays(GL_LINES, 0, 640);
-    
 }
 
 
