@@ -159,7 +159,7 @@
     }
     
     // Store new state
-    _historyDT[0] = 1.0/(arc4random()%60 +1);//_displayLink.timestamp -_displayLinkTickTimeLast;
+    _historyDT[0] = _displayLink.timestamp -_displayLinkTickTimeLast;
 
     // Update length if there is more place
 	if ( _historyDTLength < 319 ) _historyDTLength++;
