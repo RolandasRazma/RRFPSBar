@@ -26,14 +26,20 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#import "RRFPSBar.h"
 
+
+#import "RRFPSBar.h"
+#import <QuartzCore/QuartzCore.h>
 
 @implementation RRFPSBar {
     CADisplayLink          *_displayLink;
     NSUInteger              _historyDTLength;
     CFTimeInterval          _historyDT[320];
     CFTimeInterval          _displayLinkTickTimeLast;
+    
+    CATextLayer            *_fpsTextLayer;
+    CAShapeLayer           *_linesLayer;
+    CAShapeLayer           *_chartLayer;
 }
 
 
@@ -72,6 +78,53 @@
         if( [self.layer respondsToSelector:@selector(setDrawsAsynchronously:)] ){
             [self.layer setDrawsAsynchronously:YES];
         }
+        
+        _chartLayer = [CAShapeLayer layer];
+        _linesLayer = [CAShapeLayer layer];
+        _fpsTextLayer = [CATextLayer layer];
+        
+        _chartLayer.frame = self.bounds;
+        _linesLayer.frame = self.bounds;
+        _fpsTextLayer.frame = CGRectMake(0, CGRectGetHeight(self.frame)/2.0, 100, CGRectGetHeight(self.frame)/2.0);
+        
+        
+        //configure the layer containing the lines
+        UIBezierPath *path = [UIBezierPath bezierPath];
+        //60fps
+        [path moveToPoint:CGPointMake(0, 0)];
+        [path addLineToPoint:CGPointMake(CGRectGetWidth(self.frame), 0)];
+        //30fps
+        [path moveToPoint:CGPointMake(0, 10)];
+        [path addLineToPoint:CGPointMake(CGRectGetWidth(self.frame), 10)];
+        
+        [path closePath];
+        
+        [_linesLayer setPath:path.CGPath];
+        [_linesLayer setStrokeColor:[UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:0.5].CGColor];
+        _linesLayer.contentsScale = [UIScreen mainScreen].scale;
+        
+
+        //configure text layer
+        _fpsTextLayer.fontSize = 10.0;
+        _fpsTextLayer.foregroundColor = [UIColor redColor].CGColor;
+        _fpsTextLayer.contentsScale = [UIScreen mainScreen].scale;
+        
+        //configure the chart layer
+        
+        [_chartLayer setStrokeColor:[UIColor redColor].CGColor];
+        _chartLayer.contentsScale = [UIScreen mainScreen].scale;
+        [self.layer addSublayer:_linesLayer];
+        [self.layer addSublayer:_fpsTextLayer];
+        [self.layer addSublayer:_chartLayer];
+        
+        
+        
+        
+        
+        
+        
+        
+
     }
     return self;
 }
@@ -80,7 +133,7 @@
 #pragma mark -
 #pragma mark UIVIew
 
-
+/*
 - (void)drawRect:(CGRect)rect {
 
 	CFTimeInterval maxDT = CGFLOAT_MIN;
@@ -129,6 +182,8 @@
 
 }
 
+*/
+
 
 #pragma mark -
 #pragma mark RRFPSBar
@@ -171,8 +226,28 @@
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
     if( _historyDT[0] < 0.1f ){
-        [self setNeedsDisplay];
+        [self updateChartAndText];
     }
+}
+
+- (void)updateChartAndText{
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    
+    CFTimeInterval maxDT = CGFLOAT_MIN;
+    
+    [path moveToPoint:CGPointMake(0, 0)];
+    for( NSUInteger i=0; i<=_historyDTLength; i++ ){
+        maxDT = MAX(maxDT, _historyDT[i]);
+
+        [path addLineToPoint:CGPointMake(i+1, CGRectGetHeight(_chartLayer.frame) *(float)_historyDT[i])];
+
+    }
+    [path closePath];
+    _chartLayer.path = path.CGPath;
+    
+    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
+    _fpsTextLayer.string = text;
+
 }
 
 
