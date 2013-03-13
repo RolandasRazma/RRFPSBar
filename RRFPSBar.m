@@ -36,10 +36,13 @@
     NSUInteger              _historyDTLength;
     CFTimeInterval          _historyDT[320];
     CFTimeInterval          _displayLinkTickTimeLast;
+    CFTimeInterval          _lastUIUpdateTime;
     
     CATextLayer            *_fpsTextLayer;
     CAShapeLayer           *_linesLayer;
     CAShapeLayer           *_chartLayer;
+    
+    
 }
 
 
@@ -118,13 +121,7 @@
         [self.layer addSublayer:_chartLayer];
         
         
-        
-        
-        
-        
-        
-        
-
+        self.desiredChartUpdateInterval = 1.0/60.0;
     }
     return self;
 }
@@ -217,7 +214,7 @@
     }
     
     // Store new state
-    _historyDT[0] = _displayLink.timestamp -_displayLinkTickTimeLast;
+    _historyDT[0] = 1.0/(arc4random()%60 +1);//_displayLink.timestamp -_displayLinkTickTimeLast;
 
     // Update length if there is more place
 	if ( _historyDTLength < 319 ) _historyDTLength++;
@@ -225,7 +222,8 @@
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    if( _historyDT[0] < 0.1f ){
+    CFTimeInterval _timeSinceLastUpdate = _displayLinkTickTimeLast - _lastUIUpdateTime;
+    if( _historyDT[0] < 0.1f && _timeSinceLastUpdate >= self.desiredChartUpdateInterval ){
         [self updateChartAndText];
     }
 }
@@ -247,6 +245,9 @@
     
     NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
     _fpsTextLayer.string = text;
+    _lastUIUpdateTime =  _displayLinkTickTimeLast;
+    
+
 
 }
 
