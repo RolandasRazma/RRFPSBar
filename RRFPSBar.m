@@ -31,6 +31,7 @@
 #import "RRFPSBar.h"
 #import <QuartzCore/QuartzCore.h>
 
+
 @implementation RRFPSBar {
     CADisplayLink          *_displayLink;
     NSUInteger              _historyDTLength;
@@ -41,7 +42,6 @@
     CATextLayer            *_fpsTextLayer;
     CAShapeLayer           *_linesLayer;
     CAShapeLayer           *_chartLayer;
-    
     
 }
 
@@ -128,61 +128,6 @@
 
 
 #pragma mark -
-#pragma mark UIVIew
-
-/*
-- (void)drawRect:(CGRect)rect {
-
-	CFTimeInterval maxDT = CGFLOAT_MIN;
-    
-    CGContextRef currentContext = UIGraphicsGetCurrentContext();
-    CGContextSetLineWidth(currentContext, 1);
-    CGContextBeginPath(currentContext);
-
-    CGContextSetRGBStrokeColor(currentContext, 1.0f, 1.0f, 1.0f, 0.5f);
-    
-    // 60FPS
-    CGContextMoveToPoint(currentContext, 0, 0);
-    CGContextAddLineToPoint(currentContext, rect.size.width, 0);
-
-    // 30FPS
-    CGContextMoveToPoint(currentContext, 0, 10);
-    CGContextAddLineToPoint(currentContext, rect.size.width, 10);
-
-    CGContextStrokePath(currentContext);
-
-    // Graph
-    CGContextSetRGBStrokeColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
-    
-    CGContextMoveToPoint(currentContext, 0, 0);
-    for( NSUInteger i=0; i<=_historyDTLength; i++ ){
-        maxDT = MAX(maxDT, _historyDT[i]);
-        CGContextAddLineToPoint(currentContext, i +1, rect.size.height *(float)_historyDT[i]);
-    }
-
-    CGContextStrokePath(currentContext);
-
-    
-    // Draw lowest FPS
-    CGContextSetTextDrawingMode(currentContext, kCGTextFill);
-    CGContextSetRGBFillColor(currentContext, 1.0f, 0.0f, 0.0f, 1.0f);
-    CGContextSelectFont(currentContext, "Helvetica", 10, kCGEncodingMacRoman);
-    
-    // Flip
-    CGContextSetTextMatrix(currentContext, CGAffineTransformMake( 1.0f,  0.0f,
-                                                                  0.0f, -1.0f,
-                                                                  0.0f,  0.0f));
-    
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
-    const char *str = [text UTF8String];
-    CGContextShowTextAtPoint(currentContext, 6.0f, 18.0f, str, strlen(str));
-
-}
-
-*/
-
-
-#pragma mark -
 #pragma mark RRFPSBar
 
 
@@ -223,12 +168,14 @@
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
     CFTimeInterval _timeSinceLastUpdate = _displayLinkTickTimeLast - _lastUIUpdateTime;
+    
     if( _historyDT[0] < 0.1f && _timeSinceLastUpdate >= self.desiredChartUpdateInterval ){
         [self updateChartAndText];
     }
 }
 
 - (void)updateChartAndText{
+    
     UIBezierPath *path = [UIBezierPath bezierPath];
     
     CFTimeInterval maxDT = CGFLOAT_MIN;

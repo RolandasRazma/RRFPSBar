@@ -31,6 +31,7 @@
 
 @interface RRFPSBar : UIWindow
 @property (nonatomic, readwrite) NSTimeInterval desiredChartUpdateInterval;
+
 + (RRFPSBar *)sharedInstance;
 
 @end
