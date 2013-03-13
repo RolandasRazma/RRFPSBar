@@ -184,13 +184,17 @@
     for( NSUInteger i=0; i<=_historyDTLength; i++ ){
         maxDT = MAX(maxDT, _historyDT[i]);
 
-        [path addLineToPoint:CGPointMake(i+1, CGRectGetHeight(_chartLayer.frame) *(float)_historyDT[i])];
+        CGFloat y = 0;
+        y = CGRectGetHeight(_chartLayer.frame) - CGRectGetHeight(_chartLayer.frame) *( roundf(1.0 / _historyDT[i]) / 60.0);
+        y = MIN(CGRectGetHeight(_chartLayer.frame), y);
+        y = MAX(0,y);
+        
+        [path addLineToPoint:CGPointMake(i+1, y)];
 
     }
-    [path closePath];
     _chartLayer.path = path.CGPath;
     
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(60.0f -60.0f *(float)maxDT))];
+    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(1.0 / (float)maxDT))];
     _fpsTextLayer.string = text;
     _lastUIUpdateTime =  _displayLinkTickTimeLast;
     
