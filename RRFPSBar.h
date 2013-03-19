@@ -32,6 +32,9 @@
 @interface RRFPSBar : UIWindow
 @property (nonatomic, readwrite) NSTimeInterval desiredChartUpdateInterval;
 
+//default is no
+@property (nonatomic, readwrite) BOOL showsAverage;
+
 + (RRFPSBar *)sharedInstance;
 
 @end
