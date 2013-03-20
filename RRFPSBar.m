@@ -43,6 +43,8 @@
     CAShapeLayer           *_linesLayer;
     CAShapeLayer           *_chartLayer;
     
+    BOOL                    _showsAverage;
+    
 }
 
 
@@ -128,6 +130,20 @@
 
 
 #pragma mark -
+#pragma mark Accessors
+
+- (void)setShowsAverage:(BOOL)showsAverage
+{
+    [self willChangeValueForKey:@"showsAverage"];
+    _showsAverage = showsAverage;
+    [self didChangeValueForKey:@"showsAverage"];
+}
+
+- (BOOL)showsAverage
+{
+    return _showsAverage;
+}
+#pragma mark -
 #pragma mark RRFPSBar
 
 
@@ -179,22 +195,35 @@
     UIBezierPath *path = [UIBezierPath bezierPath];
     
     CFTimeInterval maxDT = CGFLOAT_MIN;
+    CFTimeInterval avgDT = 0.0;
     
     [path moveToPoint:CGPointMake(0, 0)];
+
     for( NSUInteger i=0; i<=_historyDTLength; i++ ){
         maxDT = MAX(maxDT, _historyDT[i]);
-
+        avgDT += _historyDT[i];
+        
         CGFloat y = 0;
-        y = CGRectGetHeight(_chartLayer.frame) - CGRectGetHeight(_chartLayer.frame) *( roundf(1.0 / _historyDT[i]) / 60.0);
+        CGFloat fraction =  roundf(1.0 / _historyDT[i]) / 60.0;
+        y = CGRectGetHeight(_chartLayer.frame) - CGRectGetHeight(_chartLayer.frame) * fraction;
         y = MIN(CGRectGetHeight(_chartLayer.frame), y);
         y = MAX(0,y);
         
         [path addLineToPoint:CGPointMake(i+1, y)];
 
     }
+
+    avgDT /= _historyDTLength;
     _chartLayer.path = path.CGPath;
     
-    NSString *text  = [NSString stringWithFormat:@"low: %.f", MAX(0.0f, roundf(1.0 / (float)maxDT))];
+    CFTimeInterval minFPS = roundf(1.0 / (float)maxDT);
+    CFTimeInterval avgFPS = roundf(1.0 / (float)avgDT);
+
+    NSString *text;
+    if(self.showsAverage)
+         text = [NSString stringWithFormat:@"low: %.f | avg: %.f", minFPS, avgFPS];
+    else
+        text = [NSString stringWithFormat:@"low %.f", minFPS];
     _fpsTextLayer.string = text;
     _lastUIUpdateTime =  _displayLinkTickTimeLast;
     
