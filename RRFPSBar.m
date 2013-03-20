@@ -27,7 +27,6 @@
 //
 
 
-
 #import "RRFPSBar.h"
 #import <QuartzCore/QuartzCore.h>
 
@@ -44,7 +43,6 @@
     CAShapeLayer           *_chartLayer;
     
     BOOL                    _showsAverage;
-    
 }
 
 
@@ -60,8 +58,8 @@
 
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
-        _historyDTLength           = 0;
-        _displayLinkTickTimeLast    = CACurrentMediaTime();
+        _historyDTLength        = 0;
+        _displayLinkTickTimeLast= CACurrentMediaTime();
         
         [self setWindowLevel: UIWindowLevelStatusBar +1.0f];
         [self setBackgroundColor:[UIColor blackColor]];
@@ -76,73 +74,56 @@
                                                      name: UIApplicationWillResignActiveNotification
                                                    object: nil];
 
+        // Track FPS using display link
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkTick)];
         [_displayLink setPaused:YES];
         [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
         
-        if( [self.layer respondsToSelector:@selector(setDrawsAsynchronously:)] ){
-            [self.layer setDrawsAsynchronously:YES];
-        }
-        
-        _chartLayer = [CAShapeLayer layer];
+        // Lines Layer
         _linesLayer = [CAShapeLayer layer];
-        _fpsTextLayer = [CATextLayer layer];
+        [_linesLayer setFrame: self.bounds];
+        [_linesLayer setStrokeColor:[UIColor colorWithRed:1.0f green:1.0f blue:1.0f alpha:0.5f].CGColor];
+        [_linesLayer setContentsScale: [UIScreen mainScreen].scale];
         
-        _chartLayer.frame = self.bounds;
-        _linesLayer.frame = self.bounds;
-        _fpsTextLayer.frame = CGRectMake(0, CGRectGetHeight(self.frame)/2.0, 100, CGRectGetHeight(self.frame)/2.0);
-        
-        
-        //configure the layer containing the lines
         UIBezierPath *path = [UIBezierPath bezierPath];
-        //60fps
-        [path moveToPoint:CGPointMake(0, 0)];
-        [path addLineToPoint:CGPointMake(CGRectGetWidth(self.frame), 0)];
-        //30fps
-        [path moveToPoint:CGPointMake(0, 10)];
-        [path addLineToPoint:CGPointMake(CGRectGetWidth(self.frame), 10)];
-        
+        [path moveToPoint:CGPointZero];
+        [path addLineToPoint:CGPointMake(self.frame.size.width, 0.0f)];
+        [path moveToPoint:CGPointMake(0.0f, 10.0f)];
+        [path addLineToPoint:CGPointMake(self.frame.size.width, 10.0f)];
         [path closePath];
         
         [_linesLayer setPath:path.CGPath];
-        [_linesLayer setStrokeColor:[UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:0.5].CGColor];
-        _linesLayer.contentsScale = [UIScreen mainScreen].scale;
-        
 
-        //configure text layer
-        _fpsTextLayer.fontSize = 10.0;
-        _fpsTextLayer.foregroundColor = [UIColor redColor].CGColor;
-        _fpsTextLayer.contentsScale = [UIScreen mainScreen].scale;
-        
-        //configure the chart layer
-        
-        [_chartLayer setStrokeColor:[UIColor redColor].CGColor];
-        _chartLayer.contentsScale = [UIScreen mainScreen].scale;
         [self.layer addSublayer:_linesLayer];
-        [self.layer addSublayer:_fpsTextLayer];
+
+        // Chart Layer
+        _chartLayer = [CAShapeLayer layer];
+        [_chartLayer setFrame: self.bounds];
+        [_chartLayer setStrokeColor: [UIColor redColor].CGColor];
+        [_chartLayer setContentsScale: [UIScreen mainScreen].scale];
         [self.layer addSublayer:_chartLayer];
+
+        // Info Layer
+        _fpsTextLayer = [CATextLayer layer];
+        [_fpsTextLayer setFrame: CGRectMake(5.0f, self.bounds.size.height -9.0f, 100.0f, 10.0f)];
+        [_fpsTextLayer setFontSize: 9.0f];
+        [_fpsTextLayer setForegroundColor: [UIColor redColor].CGColor];
+        [_fpsTextLayer setContentsScale: [UIScreen mainScreen].scale];
+        [self.layer addSublayer:_fpsTextLayer];
         
+        // Draw asynchronously on iOS6+
+        if( [_chartLayer respondsToSelector:@selector(setDrawsAsynchronously:)] ){
+            [_linesLayer setDrawsAsynchronously:YES];
+            [_chartLayer setDrawsAsynchronously:YES];
+            [_fpsTextLayer setDrawsAsynchronously:YES];
+        }
         
-        self.desiredChartUpdateInterval = 1.0/60.0;
+        [self setDesiredChartUpdateInterval: 1.0f /60.0f];
     }
     return self;
 }
 
 
-#pragma mark -
-#pragma mark Accessors
-
-- (void)setShowsAverage:(BOOL)showsAverage
-{
-    [self willChangeValueForKey:@"showsAverage"];
-    _showsAverage = showsAverage;
-    [self didChangeValueForKey:@"showsAverage"];
-}
-
-- (BOOL)showsAverage
-{
-    return _showsAverage;
-}
 #pragma mark -
 #pragma mark RRFPSBar
 
@@ -183,52 +164,49 @@
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
     
-    CFTimeInterval _timeSinceLastUpdate = _displayLinkTickTimeLast - _lastUIUpdateTime;
-    
-    if( _historyDT[0] < 0.1f && _timeSinceLastUpdate >= self.desiredChartUpdateInterval ){
+    // Update UI
+    CFTimeInterval timeSinceLastUIUpdate = _displayLinkTickTimeLast -_lastUIUpdateTime;
+    if( _historyDT[0] < 0.1f && timeSinceLastUIUpdate >= _desiredChartUpdateInterval ){
         [self updateChartAndText];
     }
 }
 
-- (void)updateChartAndText{
+
+- (void)updateChartAndText {
     
     UIBezierPath *path = [UIBezierPath bezierPath];
-    
-    CFTimeInterval maxDT = CGFLOAT_MIN;
-    CFTimeInterval avgDT = 0.0;
-    
-    [path moveToPoint:CGPointMake(0, 0)];
+    [path moveToPoint:CGPointZero];
 
+    CFTimeInterval maxDT = CGFLOAT_MIN;
+    CFTimeInterval avgDT = 0.0f;
+        
     for( NSUInteger i=0; i<=_historyDTLength; i++ ){
         maxDT = MAX(maxDT, _historyDT[i]);
         avgDT += _historyDT[i];
         
-        CGFloat y = 0;
-        CGFloat fraction =  roundf(1.0 / _historyDT[i]) / 60.0;
-        y = CGRectGetHeight(_chartLayer.frame) - CGRectGetHeight(_chartLayer.frame) * fraction;
-        y = MIN(CGRectGetHeight(_chartLayer.frame), y);
-        y = MAX(0,y);
+        CGFloat fraction =  roundf(1.0f /(float)_historyDT[i]) /60.0f;
+        CGFloat y = _chartLayer.frame.size.height -_chartLayer.frame.size.height *fraction;
+        y = MAX(0.0f, MIN(_chartLayer.frame.size.height, y));
         
-        [path addLineToPoint:CGPointMake(i+1, y)];
-
+        [path addLineToPoint:CGPointMake(i +1.0f, y)];
     }
 
     avgDT /= _historyDTLength;
     _chartLayer.path = path.CGPath;
     
-    CFTimeInterval minFPS = roundf(1.0 / (float)maxDT);
-    CFTimeInterval avgFPS = roundf(1.0 / (float)avgDT);
+    CFTimeInterval minFPS = roundf(1.0f /(float)maxDT);
+    CFTimeInterval avgFPS = roundf(1.0f /(float)avgDT);
 
     NSString *text;
-    if(self.showsAverage)
-         text = [NSString stringWithFormat:@"low: %.f | avg: %.f", minFPS, avgFPS];
-    else
+    if( _showsAverage ){
+        text = [NSString stringWithFormat:@"low: %.f | avg: %.f", minFPS, avgFPS];
+    } else {
         text = [NSString stringWithFormat:@"low %.f", minFPS];
-    _fpsTextLayer.string = text;
-    _lastUIUpdateTime =  _displayLinkTickTimeLast;
+    }
     
-
-
+    [_fpsTextLayer setString: text];
+    
+    _lastUIUpdateTime = _displayLinkTickTimeLast;
 }
 
 
