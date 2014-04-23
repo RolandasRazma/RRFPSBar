@@ -190,6 +190,8 @@
         
         [path addLineToPoint:CGPointMake(i +1.0f, y)];
     }
+    
+    [path addLineToPoint:CGPointMake(_historyDTLength, 0)];
 
     avgDT /= _historyDTLength;
     _chartLayer.path = path.CGPath;
