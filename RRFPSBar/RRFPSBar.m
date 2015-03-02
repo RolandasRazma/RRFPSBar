@@ -34,7 +34,8 @@
 @implementation RRFPSBar {
     CADisplayLink          *_displayLink;
     NSUInteger              _historyDTLength;
-    CFTimeInterval          _historyDT[320];
+    NSUInteger              _maxHistoryDTLength;
+    CFTimeInterval          *_historyDT;
     CFTimeInterval          _displayLinkTickTimeLast;
     CFTimeInterval          _lastUIUpdateTime;
     
@@ -53,11 +54,15 @@
 - (void)dealloc {
     [_displayLink setPaused:YES];
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    free(_historyDT);
 }
 
 
 - (id)init {
     if( (self = [super initWithFrame:[[UIApplication sharedApplication] statusBarFrame]]) ){
+        
+        _maxHistoryDTLength = (NSInteger)CGRectGetWidth(self.bounds);
+        _historyDT = malloc(sizeof(CFTimeInterval) * _maxHistoryDTLength);
         _historyDTLength        = 0;
         _displayLinkTickTimeLast= CACurrentMediaTime();
         
@@ -151,7 +156,7 @@
 - (void)displayLinkTick {
     
     // Shift up the buffer
-    for ( int i = _historyDTLength; i >= 1; i-- ) {
+    for (NSUInteger i = _historyDTLength; i >= 1; i-- ) {
         _historyDT[i] = _historyDT[i -1];
     }
     
@@ -159,7 +164,7 @@
     _historyDT[0] = _displayLink.timestamp -_displayLinkTickTimeLast;
 
     // Update length if there is more place
-	if ( _historyDTLength < 319 ) _historyDTLength++;
+	if ( _historyDTLength < _maxHistoryDTLength - 1) _historyDTLength++;
     
     // Store last timestamp
     _displayLinkTickTimeLast = _displayLink.timestamp;
