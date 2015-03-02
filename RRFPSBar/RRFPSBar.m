@@ -151,7 +151,7 @@
 - (void)displayLinkTick {
     
     // Shift up the buffer
-    for ( int i = _historyDTLength; i >= 1; i-- ) {
+    for (NSUInteger i = _historyDTLength; i >= 1; i-- ) {
         _historyDT[i] = _historyDT[i -1];
     }
     
