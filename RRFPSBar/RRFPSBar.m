@@ -54,6 +54,7 @@
 - (void)dealloc {
     [_displayLink setPaused:YES];
     [_displayLink removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    free(_historyDT);
 }
 
 
