@@ -138,6 +138,8 @@
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         _sharedInstance = [[RRFPSBar alloc] init];
+        if([[UIDevice currentDevice].systemVersion floatValue] >= 9.0)
+            _sharedInstance.rootViewController = [UIViewController new]; // iOS 9 requires rootViewController for any window
     });
     return _sharedInstance;
 }
